@@ -201,9 +201,20 @@ export default {
   name: 'PokerApp',
   setup() {
     // 常量配置
-    const API_BASE = 'http://localhost:8080/api/game'
-    const WS_URL = 'ws://localhost:8080/ws/game'
+    const isDev = import.meta.env.DEV
+
+    const API_BASE = isDev 
+  ? 'http://localhost:8080/api/game'
+  : 'https://campusplus.xyz/api/game'
+
+const WS_URL = isDev
+  ? 'ws://localhost:8080/ws/game'
+  : 'wss://campusplus.xyz/ws/game'
     
+
+  console.log('當前環境:', isDev ? '開發' : '生產')
+console.log('API 地址:', API_BASE)
+console.log('WebSocket 地址:', WS_URL)
     // WebSocket
     let ws = null
     
