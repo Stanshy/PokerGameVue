@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.disconnect {
+            background: #dc3545;
+        }
+        button.disconnect:hover {
+            background: #c82333;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .messages {
+            margin-top: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .message {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .message:last-child {
+            border-bottom: none;
+        }
+        .message .time {
+            color: #666;
+            font-size: 12px;
+        }
+        .message .type {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #007bff;
+            color: white;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .message pre {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket 測試工具</h1>
+        
+        <div>
+            <button onclick="connect()">連接 WebSocket</button>
+            <button class="disconnect" onclick="disconnect()">斷開連接</button>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            狀態: 未連接
+        </div>
+        
+        <h2>收到的訊息 (<span id="count">0</span>):</h2>
+        <div id="messages" class="messages">
+            <p style="text-align: center; color: #999;">尚未收到任何訊息</p>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                alert('已經連接了！');
+                return;
+            }
+
+            ws = new WebSocket('ws://localhost:8080/ws/game');
+            
+            ws.onopen = () => {
+                updateStatus('已連接', true);
+                console.log('✅ WebSocket 連接成功');
+            };
+            
+            ws.onmessage = (event) => {
+                messageCount++;
+                document.getElementById('count').textContent = messageCount;
+                
+                const data = JSON.parse(event.data);
+                console.log('📨 收到訊息:', data);
+                
+                addMessage(data);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('❌ WebSocket 錯誤:', error);
+                updateStatus('錯誤', false);
+            };
+            
+            ws.onclose = () => {
+                console.log('🔌 WebSocket 已關閉');
+                updateStatus('已斷開', false);
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function updateStatus(text, connected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = '狀態: ' + text;
+            statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+        }
+
+        function addMessage(data) {
+            const messagesEl = document.getElementById('messages');
+            
+            // 清除初始提示
+            if (messageCount === 1) {
+                messagesEl.innerHTML = '';
+            }
+            
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message';
+            
+            const time = new Date().toLocaleTimeString();
+            const type = data.type || 'UNKNOWN';
+            
+            messageEl.innerHTML = `
+                <div>
+                    <span class="time">${time}</span>
+                    <span class="type">${type}</span>
+                </div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+            messagesEl.insertBefore(messageEl, messagesEl.firstChild);
+        }
+
+        // 頁面關閉時自動斷開
+        window.addEventListener('beforeunload', () => {
+            if (ws) ws.close();
+        });
+    </script>
+</body>
+</html>
