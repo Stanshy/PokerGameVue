@@ -81,6 +81,7 @@
         <button @click="startHand">開始新手牌</button>
         <button @click="endGame">結束遊戲</button>
         <button @click="refreshState">刷新狀態</button>
+        <button @click="openHistory">手牌歷史</button>
       </div>
 
       <!-- 遊戲狀態顯示 -->
@@ -190,6 +191,76 @@
     <div v-if="message" class="message" :class="messageType">
       {{ message }}
     </div>
+
+    <!-- 手牌歷史對話框 -->
+<div v-if="showHistoryDialog" class="history-overlay" @click="showHistoryDialog = false">
+  <div class="history-dialog" @click.stop>
+    <h3>手牌歷史記錄</h3>
+    
+    <!-- 歷史列表 -->
+    <div v-if="!selectedHistory" class="history-list">
+      <div v-if="handHistories.length === 0" class="empty-message">
+        暫無歷史記錄
+      </div>
+      <div v-else>
+        <div v-for="history in handHistories" :key="history.handNumber" 
+             class="history-item"
+             @click="viewHistoryDetail(history.handNumber)">
+          <div class="history-header">
+            <span class="hand-number">手牌 #{{ history.handNumber }}</span>
+            <span class="hand-time">{{ new Date(history.timestamp).toLocaleTimeString() }}</span>
+          </div>
+          <div class="history-info">
+            <span>底池: {{ history.potAmount }}</span>
+            <span>贏家: {{ history.winners.map(w => w.playerName).join(', ') }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 手牌詳情 -->
+    <div v-else class="history-detail">
+      <button @click="closeHistoryDetail" class="back-btn">← 返回列表</button>
+      
+      <h4>手牌 #{{ selectedHistory.handNumber }}</h4>
+      
+      <div class="detail-section">
+        <h5>公共牌</h5>
+        <div class="cards">
+          <span v-for="card in selectedHistory.board" :key="card" class="card small" :class="getCardColorClass(card)">
+            {{ formatCard(card) }}
+          </span>
+        </div>
+      </div>
+      
+      <div class="detail-section">
+        <h5>底池: {{ selectedHistory.potAmount }}</h5>
+      </div>
+      
+      <div class="detail-section">
+        <h5>贏家</h5>
+        <div v-for="winner in selectedHistory.winners" :key="winner.playerName">
+          {{ winner.playerName }} 贏得 {{ winner.amountWon }}
+        </div>
+      </div>
+      
+      <div class="detail-section">
+        <h5>玩家手牌</h5>
+        <div v-for="player in selectedHistory.players" :key="player.name" class="player-detail">
+          <strong>{{ player.name }}</strong>
+          <div class="cards">
+            <span v-for="card in player.hand" :key="card" class="card small" :class="getCardColorClass(card)">
+              {{ formatCard(card) }}
+            </span>
+          </div>
+          <span>籌碼: {{ player.chips }} | 動作: {{ translateAction(player.lastAction) }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <button @click="showHistoryDialog = false" class="close-btn">關閉</button>
+  </div>
+</div>
   </div>
 </template>
 
@@ -251,6 +322,12 @@ console.log('WebSocket 地址:', WS_URL)
     const message = ref('')
     const messageType = ref('info')
 
+    //牌局紀錄
+    const handHistories = ref([])
+const showHistoryDialog = ref(false)
+const selectedHistory = ref(null)
+
+
     // 計算屬性
     const canStartGame = computed(() => {
       return playerCount.value >= 2 && 
@@ -278,6 +355,42 @@ console.log('WebSocket 地址:', WS_URL)
       const redSuits = ['HEARTS', 'DIAMONDS']
       return redSuits.includes(suit) ? 'card-red' : 'card-black'
     }
+
+    // 獲取手牌歷史列表
+const fetchHandHistory = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/history`)
+    if (response.data.success) {
+      handHistories.value = response.data.data
+    }
+  } catch (error) {
+    showMessage('無法獲取手牌歷史', error)
+  }
+}
+
+// 查看特定手牌詳情
+const viewHistoryDetail = async (handNumber) => {
+  try {
+    const response = await axios.get(`${API_BASE}/history/${handNumber}`)
+    if (response.data.success) {
+      selectedHistory.value = response.data.data
+      showMessage(`查看手牌 #${handNumber}`, 'info')
+    }
+  } catch (error) {
+    showMessage('無法獲取手牌詳情', error)
+  }
+}
+
+// 打開歷史記錄對話框
+const openHistory = async () => {
+  await fetchHandHistory()
+  showHistoryDialog.value = true
+}
+
+// 關閉詳情
+const closeHistoryDetail = () => {
+  selectedHistory.value = null
+}
 
 
     // WebSocket 連接
@@ -629,8 +742,16 @@ console.log('WebSocket 地址:', WS_URL)
       formatCardFromObject,
       translatePhase,
       translateAction,
-      getCardColorClass,        // 新增 
-      getCardColorClassFromObject 
+      getCardColorClass,        
+      getCardColorClassFromObject,
+       handHistories,
+  showHistoryDialog,
+  selectedHistory,
+  fetchHandHistory,
+  viewHistoryDetail,
+  openHistory,
+  closeHistoryDetail,
+      
     }
   }
 }
@@ -1278,6 +1399,134 @@ console.log('WebSocket 地址:', WS_URL)
   background: rgba(209, 236, 241, 0.95);
   color: #0c5460;
   border: 1px solid #bee5eb;
+}
+
+/* 手牌歷史對話框 */
+.history-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.history-dialog {
+  background: #2a5298;
+  padding: 30px;
+  border-radius: 15px;
+  min-width: 600px;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.history-dialog h3 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #ffc107;
+}
+
+.history-list {
+  margin-bottom: 20px;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.history-item {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hand-number {
+  font-weight: bold;
+  color: #ffc107;
+}
+
+.hand-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.history-info {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+}
+
+.history-detail {
+  color: white;
+}
+
+.detail-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.detail-section h5 {
+  margin-bottom: 10px;
+  color: #ffc107;
+}
+
+.player-detail {
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+.back-btn {
+  margin-bottom: 15px;
+  padding: 8px 15px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: #5a6268;
+}
+
+.close-btn {
+  width: 100%;
+  padding: 12px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.close-btn:hover {
+  background: #c82333;
 }
 
 /* 響應式設計 */
