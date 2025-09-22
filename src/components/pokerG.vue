@@ -101,7 +101,7 @@
         <div class="board-area">
           <div v-if="gameState?.board?.length" class="community-cards">
             <div class="cards">
-              <span v-for="card in gameState.board" :key="card" class="card">
+              <span v-for="card in gameState.board" :key="card" class="card" :class="getCardColorClass(card)">
                 {{ formatCard(card) }}
               </span>
             </div>
@@ -140,7 +140,7 @@
             <div class="player-cards">
               <!-- Showdown 階段顯示所有玩家手牌 -->
               <div v-if="gameState.currentPhase === 'SHOWDOWN' && gameState.showdownHands && gameState.showdownHands[player.name]" class="hand-cards">
-                <span v-for="card in gameState.showdownHands[player.name]" :key="card.rank + card.suit" class="card small">
+                <span v-for="card in gameState.showdownHands[player.name]" :key="card.rank + card.suit" class="card small" :class="getCardColorClassFromObject(card)">
                   {{ formatCardFromObject(card) }}
                 </span>
               </div>
@@ -150,7 +150,7 @@
                   查看手牌
                 </button>
                 <div v-if="myHand" class="hand-cards">
-                  <span v-for="card in myHand" :key="card" class="card small">
+                  <span v-for="card in myHand" :key="card" class="card small" :class="getCardColorClass(card)">
                     {{ formatCard(card) }}
                   </span>
                 </div>
@@ -262,6 +262,23 @@ console.log('WebSocket 地址:', WS_URL)
       return gameState.value && 
              (gameState.value.currentPhase === 'SHOWDOWN' || !gameState.value.currentPlayer)
     })
+
+     const getCardColorClass = (cardStr) => {
+      if (!cardStr) return ''
+      const [rank, suit] = cardStr.split('_')
+      return getColorClassBySuit(suit)
+    }
+
+    const getCardColorClassFromObject = (card) => {
+      if (!card) return ''
+      return getColorClassBySuit(card.suit)
+    }
+
+    const getColorClassBySuit = (suit) => {
+      const redSuits = ['HEARTS', 'DIAMONDS']
+      return redSuits.includes(suit) ? 'card-red' : 'card-black'
+    }
+
 
     // WebSocket 連接
     const connectWebSocket = () => {
@@ -611,7 +628,9 @@ console.log('WebSocket 地址:', WS_URL)
       formatCard,
       formatCardFromObject,
       translatePhase,
-      translateAction
+      translateAction,
+      getCardColorClass,        // 新增 
+      getCardColorClassFromObject 
     }
   }
 }
@@ -1015,7 +1034,6 @@ console.log('WebSocket 地址:', WS_URL)
 
 .card {
   background: white;
-  color: black;
   border: 2px solid #333;
   border-radius: 8px;
   padding: 10px 14px;
@@ -1035,6 +1053,14 @@ console.log('WebSocket 地址:', WS_URL)
   padding: 4px 8px;
   font-size: 14px;
   min-width: 35px;
+}
+
+.card.card-red {
+  color: #dc3545; /* 紅色：紅桃和方塊 */
+}
+
+.card.card-black {
+  color: #212529; /* 黑色：黑桃和梅花 */
 }
 
 .pot-display {
