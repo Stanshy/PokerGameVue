@@ -161,15 +161,16 @@
             <!-- 行動按鈕 - 只有當前玩家且是自己時顯示 -->
             <div v-if="player.name === gameState.currentPlayer && player.name === myPlayerName" class="action-panel">
               <div class="quick-actions">
-                <button @click="executeAction('FOLD')" class="action-btn fold">棄牌</button>
-                <button @click="executeAction('CHECK')" class="action-btn check">過牌</button>
-                <button @click="executeAction('CALL', gameState.currentHighestBet)" class="action-btn call">
+                <button v-if="gameState.legalActions?.includes('FOLD')"  @click="executeAction('FOLD')" class="action-btn fold">棄牌</button>
+                <button v-if="gameState.legalActions?.includes('CHECK')"  @click="executeAction('CHECK')" class="action-btn check">過牌</button>
+                <button  v-if="gameState.legalActions?.includes('CALL')"  @click="executeAction('CALL', gameState.currentHighestBet)" class="action-btn call">
                   跟注 ({{ gameState.currentHighestBet }})
                 </button>
-                <button @click="executeAction('ALL_IN')" class="action-btn allin">全押</button>
+                <button v-if="gameState.legalActions?.includes('ALL_IN')" @click="executeAction('ALL_IN')" class="action-btn allin">全押</button>
               </div>
               
               <div class="bet-controls">
+                <template v-if="gameState.legalActions?.includes('BET') || gameState.legalActions?.includes('RAISE')">
                 <input 
                   v-model.number="betAmount" 
                   type="number" 
@@ -178,8 +179,9 @@
                   :max="player.chips"
                   class="bet-input"
                 >
-                <button @click="executeAction('BET', betAmount)" class="action-btn bet">下注</button>
-                <button @click="executeAction('RAISE', betAmount)" class="action-btn raise">加注</button>
+                <button v-if="gameState.legalActions?.includes('BET')" @click="executeAction('BET', betAmount)" class="action-btn bet">下注</button>
+                <button v-if="gameState.legalActions?.includes('RAISE')"  @click="executeAction('RAISE', betAmount)" class="action-btn raise">加注</button>
+                </template>
               </div>
             </div>
           </div>
